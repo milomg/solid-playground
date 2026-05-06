@@ -1,23 +1,19 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "target": "ES2022",
     "module": "ESNext",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "allowSyntheticDefaultImports": true,
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "moduleResolution": "bundler",
-    "jsx": "preserve",
-    "resolveJsonModule": true,
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "esModuleInterop": true,
     "skipLibCheck": true,
-    "jsxImportSource": "solid-js",
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
-    "paths": {
-      "styled-system/*": ["./styled-system/*"]
-    }
-  }
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "jsx": "preserve",
+    "types": ["node", "vite/client"]
+  },
+  "include": ["src", "vite.config.ts"]
 }

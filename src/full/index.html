@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solid Playground</title>
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #1e1e1e; }
+      #app { height: 100vh; width: 100vw; }
+    </style>
+  </head>
+  <body>
+    <script>
+      // Minimal Node-like process shim. The bundled typescript-language-features
+      // extension dereferences `process.versions.node`; without this we crash on activate.
+      globalThis.process = globalThis.process ?? {};
+      globalThis.process.env = globalThis.process.env ?? {};
+      globalThis.process.versions = globalThis.process.versions ?? { node: '22.0.0' };
+    </script>
+    <div id="app"></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
