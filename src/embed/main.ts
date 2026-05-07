@@ -17,10 +17,9 @@ import { registerSolidExtensions } from '../extensions';
 import { iframeHtml } from '../extensions/solid-compiler/preview/iframeHtml';
 
 async function boot() {
-  const { tabs: seedTabs, persistLocally } = await seedWorkspace();
-  (window as any).__solidPlaygroundPersistLocally = persistLocally;
+  const seed = await seedWorkspace();
   installMonacoEnvironment();
-  bootstrapFileSystem(seedTabs);
+  bootstrapFileSystem(seed.tabs);
 
   await initServices(
     {
@@ -61,7 +60,7 @@ async function boot() {
     theme: 'Default Dark Modern',
   });
 
-  const { compiler } = await registerSolidExtensions('embed');
+  const { compiler } = await registerSolidExtensions('embed', { persistLocally: seed.persistLocally });
 
   const previewHost = document.getElementById('preview-host')!;
   const iframe = document.createElement('iframe');

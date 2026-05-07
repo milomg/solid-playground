@@ -103,7 +103,6 @@ export default defineConfig(({ mode }) => {
         'vscode/localExtensionHost',
         '@babel/standalone',
         'babel-preset-solid',
-        'babel-plugin-jsx-dom-expressions',
         'dedent',
         'prettier/standalone',
         'prettier/plugins/babel',

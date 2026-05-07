@@ -3,15 +3,17 @@
 // startup, so .tsx tab restoration picks up the right language id and theme on the first frame.
 // Reordering or moving any of these into the boot function regresses syntax highlighting.
 //
-// `solid-defaults` is our slim fork of stock typescript-basics + theme-defaults — declares
-// typescriptreact + Dark Modern, and registers our custom Monaco tokens provider (see
-// extensions/solid-defaults/tokenizer.ts) instead of going through the workbench's TextMate
-// stack.
+// `solid-defaults` is our slim fork of stock typescript-basics + json + theme-defaults
+// (~250 KB) — declares typescriptreact / typescript / javascript / json + Dark Modern with
+// the upstream TextMate grammars. Tokenization runs through our hand-rolled tokenizer
+// (extensions/solid-defaults/registerTokens.ts) on top of `oniguruma-to-es` rather than the
+// workbench's TextMate engine.
 import 'vscode/localExtensionHost';
 import '../extensions/solid-defaults';
 import '@codingame/monaco-vscode-typescript-language-features-default-extension';
 
 import { initialize as initServices } from '@codingame/monaco-vscode-api';
+import { StandaloneServices, IWorkbenchThemeService } from '@codingame/monaco-vscode-api/services';
 import getWorkbenchServiceOverride from '@codingame/monaco-vscode-workbench-service-override';
 import getFilesServiceOverride from '@codingame/monaco-vscode-files-service-override';
 import { commands } from 'vscode';
@@ -26,7 +28,6 @@ const LAYOUT_KEY_STORAGE = 'solid-playground:layout-key';
 
 async function boot() {
   const seed = await seedWorkspace();
-  (window as any).__solidPlaygroundPersistLocally = seed.persistLocally;
   installMonacoEnvironment();
   bootstrapFileSystem(seed.tabs);
 
@@ -73,7 +74,13 @@ async function boot() {
     },
   );
 
-  await registerSolidExtensions('full');
+  await registerSolidExtensions('full', { persistLocally: seed.persistLocally, repl: seed.repl });
+
+  // The `workbench.colorTheme` config in initServices' configurationDefaults races extension
+  // registration — on first boot the theme is read before the contribution lands and the
+  // workbench falls back to vs-dark (7-color palette, no real syntax colors). Re-apply it
+  // explicitly here.
+  void applyDarkModernTheme();
 
   // Output and preview can't go in defaultLayout.editors (custom-scheme document + webview); open
   // them post-init only when applying a fresh layout. Webview restoration on plain reload is
@@ -81,6 +88,18 @@ async function boot() {
   if (resetLayout) {
     await commands.executeCommand('solid.compile.showOutput');
     await commands.executeCommand('solid.compile.preview');
+  }
+}
+
+async function applyDarkModernTheme(): Promise<void> {
+  try {
+    const themeService = StandaloneServices.get(IWorkbenchThemeService);
+    if (themeService.getColorTheme().settingsId === 'Default Dark Modern') return;
+    const themes = await themeService.getColorThemes();
+    const dark = themes.find((t) => t.settingsId === 'Default Dark Modern');
+    if (dark) await themeService.setColorTheme(dark.id, 'auto');
+  } catch (err) {
+    console.warn('Theme apply failed', err);
   }
 }
 

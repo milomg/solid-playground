@@ -11,11 +11,14 @@
   </head>
   <body>
     <script>
-      // Minimal Node-like process shim. The bundled typescript-language-features
-      // extension dereferences `process.versions.node`; without this we crash on activate.
+      // Minimal `process` shim — the bundled typescript-language-features extension dereferences
+      // `process.versions.node` on activate. Leaving `node` UNSET is intentional: the same
+      // extension's `--enableProjectWideIntelliSenseOnWeb` gate checks `!process.versions.node`
+      // to decide whether to use vscode.workspace.fs (the path that sees our virtual node_modules)
+      // or a network-XHR fallback that doesn't.
       globalThis.process = globalThis.process ?? {};
       globalThis.process.env = globalThis.process.env ?? {};
-      globalThis.process.versions = globalThis.process.versions ?? { node: '22.0.0' };
+      globalThis.process.versions = globalThis.process.versions ?? {};
     </script>
     <div id="app"></div>
     <script type="module" src="./main.ts"></script>

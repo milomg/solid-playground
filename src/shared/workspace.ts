@@ -10,16 +10,18 @@ import type { Tab } from './types';
 export const WORKSPACE_FILE = monaco.Uri.file('/workspace.code-workspace');
 export const WORKSPACE_DIR = '/workspace';
 
-// Vendored type declarations for solid-js / csstype, glob-imported as raw text. The keys come
-// out as `/node_modules/<pkg>/<rest>`; we write them under `/workspace/node_modules/...` so the
-// TS LSP's first module-resolution probe from /workspace/main.tsx hits them.
-const solidTypings = import.meta.glob('/node_modules/solid-js/**/*.{d.ts,json}', {
+// Vendored type declarations for solid-js / csstype, glob-imported as raw text. We write them
+// under `/workspace/node_modules/...` so the TS LSP's first module-resolution probe from
+// /workspace/main.tsx hits them. Paths are relative to this file because vite's `root` option
+// points at `src/full` (or `src/embed`) — absolute paths in import.meta.glob would resolve
+// against that root and miss the real project's node_modules.
+const solidTypings = import.meta.glob('../../node_modules/solid-js/**/*.{d.ts,json}', {
   query: '?raw',
   import: 'default',
   eager: true,
 }) as Record<string, string>;
 
-const csstypeTypings = import.meta.glob('/node_modules/csstype/**/*.{d.ts,json}', {
+const csstypeTypings = import.meta.glob('../../node_modules/csstype/**/*.{d.ts,json}', {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -44,8 +46,9 @@ export function bootstrapFileSystem(seedTabs: Tab[]): RegisteredFileSystemProvid
   );
 
   for (const [key, content] of Object.entries({ ...solidTypings, ...csstypeTypings })) {
-    const target = monaco.Uri.file(WORKSPACE_DIR + key); // /node_modules/... -> /workspace/node_modules/...
-    fileSystemProvider.registerFile(new RegisteredMemoryFile(target, content));
+    // Strip the `../../` prefix and rebase under /workspace/node_modules/.
+    const tail = key.replace(/^(?:\.\.\/)+/, '/');
+    fileSystemProvider.registerFile(new RegisteredMemoryFile(monaco.Uri.file(WORKSPACE_DIR + tail), content));
   }
 
   registerFileSystemOverlay(1, fileSystemProvider);

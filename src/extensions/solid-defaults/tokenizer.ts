@@ -1,5 +1,5 @@
-// Hand-rolled TextMate tokenizer over `oniguruma-to-es`. We replace the workbench's TextMate
-// stack — the latter pulls in vscode-textmate + a WASM Oniguruma engine, this implements the
+// Hand-rolled TextMate tokenizer over `oniguruma-to-es`. Replaces the workbench's TextMate
+// stack — that path pulls in vscode-textmate plus a WASM Oniguruma engine; this implements the
 // subset we need on top of native ECMAScript regex.
 //
 // Subset handled:
@@ -18,7 +18,6 @@
 
 import { toRegExp } from 'oniguruma-to-es';
 
-// --- Raw grammar shapes (subset of TextMate spec) ---
 interface RawCapture {
   name?: string;
   patterns?: RawPattern[];
@@ -41,15 +40,46 @@ export interface RawGrammar {
   repository?: Record<string, RawPattern>;
 }
 
-// --- Compiled rules ---
 type CaptureMap = Map<number, string>;
+
+// Wrapper around a single Oniguruma pattern source. Carries lazy compilation and the
+// `\1..\N` backreference substitution used for end-patterns. Modeled on vscode-textmate's
+// `RegExpSource`, simplified for our subset (no anchors, no \G handling).
+class RegExpSource {
+  readonly source: string;
+  readonly hasBackRefs: boolean;
+  private regex: RegExp | null = null;
+  private compiled = false;
+
+  constructor(source: string) {
+    this.source = source;
+    this.hasBackRefs = /\\\d+/.test(source);
+  }
+
+  compile(): RegExp | null {
+    if (!this.compiled) {
+      this.regex = compileRegex(this.source);
+      this.compiled = true;
+    }
+    return this.regex;
+  }
+
+  // Build a fresh RegExp with `\N` substituted by the (regex-escaped) literal text from
+  // the begin match's group N. Backreferences can't span two compiled regexes, so the
+  // end pattern is rebuilt per-frame whenever it carries any.
+  resolveBackReferences(beginMatch: RegExpExecArray): RegExp | null {
+    if (!this.hasBackRefs) return this.compile();
+    const substituted = this.source.replace(/\\(\d+)/g, (_, n) =>
+      (beginMatch[+n] ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+    );
+    return compileRegex(substituted);
+  }
+}
 
 interface MatchRule {
   type: 'match';
   scope?: string;
-  raw: string;
-  regex: RegExp | null;
-  compiled: boolean;
+  regex: RegExpSource;
   captures: CaptureMap;
 }
 
@@ -57,10 +87,8 @@ interface BeginEndRule {
   type: 'beginEnd';
   scope?: string;
   contentScope?: string;
-  rawBegin: string;
-  beginRegex: RegExp | null;
-  beginCompiled: boolean;
-  rawEnd: string;
+  begin: RegExpSource;
+  end: RegExpSource;
   beginCaptures: CaptureMap;
   endCaptures: CaptureMap;
   childPatterns: RawPattern[];
@@ -69,7 +97,6 @@ interface BeginEndRule {
 
 type Rule = MatchRule | BeginEndRule;
 
-// --- Tokenizer state ---
 interface Frame {
   scope?: string;
   contentScope?: string;
@@ -87,7 +114,6 @@ export interface OutputToken {
   scopes: string;
 }
 
-// --- Grammar compiler ---
 class Grammar {
   private repository: Record<string, RawPattern>;
   private topPatterns: RawPattern[];
@@ -128,7 +154,6 @@ class Grammar {
         const next = new Set(visited);
         next.add(p.include);
         const list = Array.isArray(target) ? target : [target];
-        // A bare-container pattern (only `patterns`, no match/begin) — splice in its children.
         if (list.length === 1 && list[0].patterns && !list[0].match && list[0].begin === undefined) {
           this.expand(list[0].patterns!, next, out);
         } else {
@@ -138,9 +163,7 @@ class Grammar {
         out.push({
           type: 'match',
           scope: p.name,
-          raw: p.match,
-          regex: null,
-          compiled: false,
+          regex: new RegExpSource(p.match),
           captures: parseCaptures(p.captures),
         });
       } else if (p.begin !== undefined && p.end !== undefined) {
@@ -148,10 +171,8 @@ class Grammar {
           type: 'beginEnd',
           scope: p.name,
           contentScope: p.contentName,
-          rawBegin: p.begin,
-          beginRegex: null,
-          beginCompiled: false,
-          rawEnd: p.end,
+          begin: new RegExpSource(p.begin),
+          end: new RegExpSource(p.end),
           beginCaptures: parseCaptures(p.beginCaptures ?? p.captures),
           endCaptures: parseCaptures(p.endCaptures ?? p.captures),
           childPatterns: p.patterns ?? [],
@@ -182,35 +203,6 @@ function compileRegex(pattern: string): RegExp | null {
   }
 }
 
-function ensureMatchRegex(rule: MatchRule): RegExp | null {
-  if (!rule.compiled) {
-    rule.regex = compileRegex(rule.raw);
-    rule.compiled = true;
-  }
-  return rule.regex;
-}
-
-function ensureBeginRegex(rule: BeginEndRule): RegExp | null {
-  if (!rule.beginCompiled) {
-    rule.beginRegex = compileRegex(rule.rawBegin);
-    rule.beginCompiled = true;
-  }
-  return rule.beginRegex;
-}
-
-function compileEndRegex(rawEnd: string, beginMatch: RegExpExecArray): RegExp | null {
-  // \N (N=1..9) → escaped literal text from begin's group N. Unmatched groups become empty.
-  const substituted = rawEnd.replace(/\\(\d)/g, (_, n) => {
-    const text = beginMatch[parseInt(n, 10)];
-    return text == null ? '' : escapeRegex(text);
-  });
-  return compileRegex(substituted);
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 interface ScanCandidate {
   regex: RegExp;
   isEnd: boolean;
@@ -229,7 +221,7 @@ function findEarliestMatch(line: string, pos: number, candidates: ScanCandidate[
       continue;
     }
     if (!m) continue;
-    if (m.index === pos) return { idx: i, match: m }; // tie: lower index wins
+    if (m.index === pos) return { idx: i, match: m };
     if (!best || m.index < best.match.index) best = { idx: i, match: m };
   }
   return best;
@@ -262,8 +254,6 @@ function emitMatch(
     return;
   }
 
-  // Break the match into segments at every group boundary, then for each segment pick the
-  // deepest (smallest-range) capture group covering it.
   const breakpoints = new Set<number>([matchStart, matchEnd]);
   for (const [groupIdx] of captures) {
     const range = indices[groupIdx];
@@ -335,7 +325,7 @@ export class Tokenizer {
       const candidates: ScanCandidate[] = [];
       if (top) candidates.push({ regex: top.endRegex, isEnd: true });
       for (const r of childRules) {
-        const re = r.type === 'match' ? ensureMatchRegex(r) : ensureBeginRegex(r);
+        const re = r.type === 'match' ? r.regex.compile() : r.begin.compile();
         if (re) candidates.push({ regex: re, isEnd: false, rule: r });
       }
 
@@ -355,7 +345,6 @@ export class Tokenizer {
       if (cand.isEnd) {
         const popping = top!;
         const outerStack = stack.slice(0, -1);
-        // End captures live OUTSIDE contentScope but INSIDE the rule's outer scope.
         const outerBase = joinScopes(baseScope, scopeChain(outerStack), popping.scope);
         emitMatch(tokens, best.match, popping.endCaptures, undefined, outerBase);
         stack = outerStack;
@@ -364,13 +353,12 @@ export class Tokenizer {
         const rule = cand.rule!;
         if (rule.type === 'match') {
           emitMatch(tokens, best.match, rule.captures, rule.scope, currentScope);
-          pos = matchEnd;
+          // 0-length `match` rule has no state change, so we must advance to make progress.
+          pos = best.match[0].length === 0 ? matchEnd + 1 : matchEnd;
         } else {
-          // Begin captures use the rule's outer scope, NOT contentScope (which only applies
-          // to the body between begin and end).
           const outerBase = joinScopes(baseScope, scopeChain(stack), rule.scope);
           emitMatch(tokens, best.match, rule.beginCaptures, undefined, outerBase);
-          const endRegex = compileEndRegex(rule.rawEnd, best.match);
+          const endRegex = rule.end.resolveBackReferences(best.match);
           if (!endRegex) {
             pos = Math.max(pos + 1, matchEnd);
             continue;
@@ -385,11 +373,12 @@ export class Tokenizer {
               rule,
             },
           ];
+          // Lookahead `begin` (0-length) is the canonical TM idiom: stay at this position so
+          // the newly-pushed frame's child rules get a chance to consume the input. The safety
+          // counter at the top of the loop is the backstop against ping-ponging push/pop.
           pos = matchEnd;
         }
       }
-
-      if (best.match[0].length === 0 && pos === best.match.index) pos++;
     }
 
     return { tokens, endState: { stack } };

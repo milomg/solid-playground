@@ -18,12 +18,6 @@ interface ActiveRepl {
   data: APIRepl;
 }
 
-declare global {
-  interface Window {
-    __solidPlaygroundRepl?: APIRepl;
-  }
-}
-
 export interface AccountApi {
   /** Currently active repl (if URL was /{user}/{replId}). */
   active(): ActiveRepl | undefined;
@@ -31,9 +25,8 @@ export interface AccountApi {
   setActive(repl: ActiveRepl | undefined): void;
 }
 
-export function activateAccount(vscode: typeof vscodeNS): AccountApi {
+export function activateAccount(vscode: typeof vscodeNS, initialRepl?: APIRepl): AccountApi {
   let user: User | null = null;
-  const initialRepl = window.__solidPlaygroundRepl;
   let active: ActiveRepl | undefined = initialRepl ? { id: initialRepl.id, data: initialRepl } : undefined;
 
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 200);

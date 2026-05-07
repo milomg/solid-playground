@@ -3,13 +3,6 @@ import { defaultTabs } from './defaults';
 import { fetchRepl, parseRoute, setToken, type APIRepl } from './api';
 import type { Tab } from './types';
 
-declare global {
-  interface Window {
-    __solidPlaygroundSeed?: Tab[];
-    __solidPlaygroundRepl?: APIRepl;
-  }
-}
-
 const SCRATCHPAD_KEY = 'solid-playground:scratchpad';
 
 function readScratchpad(): Tab[] | null {
@@ -75,7 +68,6 @@ export async function seedWorkspace(): Promise<SeedResult> {
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
     if (decoded && decoded.length) {
       persistScratchpad(decoded);
-      window.__solidPlaygroundSeed = decoded;
       return { tabs: decoded, persistLocally: true, layoutKey: `share:${shortHash(hash)}` };
     }
   }
@@ -84,8 +76,6 @@ export async function seedWorkspace(): Promise<SeedResult> {
     const repl = await fetchRepl(route.replId);
     if (repl?.files?.length) {
       const tabs: Tab[] = repl.files.map((f) => ({ name: f.name, source: f.content }));
-      window.__solidPlaygroundSeed = tabs;
-      window.__solidPlaygroundRepl = repl;
       // Don't blow away the user's scratchpad with a remote repl's contents.
       return { tabs, repl, persistLocally: false, layoutKey: `repl:${repl.id}` };
     }
@@ -93,7 +83,6 @@ export async function seedWorkspace(): Promise<SeedResult> {
 
   const stored = readScratchpad();
   const tabs = stored ?? defaultTabs;
-  window.__solidPlaygroundSeed = tabs;
   return { tabs, persistLocally: true, layoutKey: 'local' };
 }
 

@@ -2,13 +2,13 @@ import type * as vscodeNS from 'vscode';
 import { persistScratchpad } from '../../shared/seed';
 import { WORKSPACE_DIR } from '../../shared/workspace';
 
-export function activateFs(vscode: typeof vscodeNS): void {
+export function activateFs(vscode: typeof vscodeNS, persistLocally: boolean): void {
   let pending: ReturnType<typeof setTimeout> | null = null;
 
   const flush = async () => {
     pending = null;
     // Don't shadow the user's scratchpad with a remote repl's contents.
-    if ((window as any).__solidPlaygroundPersistLocally === false) return;
+    if (!persistLocally) return;
     try {
       const folder = vscode.Uri.file(WORKSPACE_DIR);
       const entries = await vscode.workspace.fs.readDirectory(folder);

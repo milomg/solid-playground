@@ -6,6 +6,7 @@ import { activateLinter } from './solid-linter/extension';
 import { activateShare } from './solid-share/extension';
 import { activateFs } from './solid-fs/extension';
 import { activateAccount } from './solid-account/extension';
+import type { APIRepl } from '../shared/api';
 
 export interface SolidExtensionApi {
   vscode: typeof vscodeNS;
@@ -14,7 +15,17 @@ export interface SolidExtensionApi {
 
 export type HostMode = 'full' | 'embed';
 
-export async function registerSolidExtensions(mode: HostMode): Promise<SolidExtensionApi> {
+export interface SolidExtensionsOptions {
+  /** False for remote-repl loads — solid-fs uses this to skip persisting the repl into scratchpad. */
+  persistLocally: boolean;
+  /** When the URL identified a repl (`/{user}/{replId}`), the resolved repl. */
+  repl?: APIRepl;
+}
+
+export async function registerSolidExtensions(
+  mode: HostMode,
+  opts: SolidExtensionsOptions,
+): Promise<SolidExtensionApi> {
   const handle = registerExtension(
     {
       name: 'solid-playground',
@@ -35,12 +46,12 @@ export async function registerSolidExtensions(mode: HostMode): Promise<SolidExte
   await handle.setAsDefaultApi();
   const vscode = (await handle.getApi()) as typeof vscodeNS;
 
-  activateFs(vscode);
+  activateFs(vscode, opts.persistLocally);
   const compiler = activateCompiler(vscode, mode);
   activateFormatter(vscode);
   activateLinter(vscode);
   activateShare(vscode);
-  if (mode === 'full') activateAccount(vscode);
+  if (mode === 'full') activateAccount(vscode, opts.repl);
 
   return { vscode, compiler };
 }
