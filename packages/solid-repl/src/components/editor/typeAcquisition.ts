@@ -52,10 +52,16 @@ const memo = <T>(cache: Map<string, Promise<T>>, key: string, make: () => Promis
 export interface TypeAcquisition {
   sync(importMap: Record<string, string>): Promise<boolean>;
   jsxImportSource(): string | undefined;
+  packageNames(): string[];
 }
 
 export function createTypeAcquisition(fsMap: Map<string, string>): TypeAcquisition {
   const bundled = new Map([...fsMap].filter(([key]) => key.startsWith(MOUNT_PREFIX)));
+
+  const bundledNames = [...bundled.keys()].flatMap((key) => {
+    const pkg = parsePackagePath(key.slice(MOUNT_PREFIX.length));
+    return pkg?.subpath === '/package.json' ? [pkg.name] : [];
+  });
 
   const versionCache = new Map<string, Promise<string | undefined>>();
   const packageCache = new Map<string, Promise<PackageFiles>>();
@@ -211,6 +217,7 @@ export function createTypeAcquisition(fsMap: Map<string, string>): TypeAcquisiti
 
   let applied = fingerprint(new Map(), []);
   let jsxSource: string | undefined;
+  let names = bundledNames;
   let syncToken = 0;
 
   return {
@@ -225,9 +232,11 @@ export function createTypeAcquisition(fsMap: Map<string, string>): TypeAcquisiti
       if (next === applied) return false;
       apply(packages, liveAliases);
       jsxSource = pickJsxImportSource(packages);
+      names = [...new Set([...bundledNames, ...packages.keys()])];
       applied = next;
       return true;
     },
     jsxImportSource: () => jsxSource,
+    packageNames: () => names,
   };
 }
