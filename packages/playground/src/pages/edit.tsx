@@ -247,6 +247,7 @@ export const Edit = () => {
 
   const reset = () => {
     setTabs(mapTabs(defaultTabs));
+    migrateTabs(resolvedSolidVersion() || undefined);
     // The persistence hook hangs off the per-tab source setter, which this bypasses.
     updateRepl();
   };
