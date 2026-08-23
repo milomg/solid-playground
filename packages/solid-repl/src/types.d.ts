@@ -35,6 +35,7 @@ declare module 'solid-repl/dist/repl' {
     id: string;
     version?: string;
     hideDevtools?: boolean;
+    vertical?: boolean;
     setTabs: (tab: Tab[]) => void;
     reset: () => void;
     onUserEdit?: () => void;

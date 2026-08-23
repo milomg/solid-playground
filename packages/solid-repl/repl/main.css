@@ -1,7 +1,11 @@
-@layer reset, base, tokens, recipes, utilities;
+@layer panda-reset, panda-base, panda-tokens, panda-recipes, panda-utilities;
+
+.dv-view.visible {
+  visibility: inherit;
+}
 
 #app .dockview-theme-abyss-spaced {
-  padding-top: 0;
+  padding: 0;
   --dv-color-abyss-dark: var(--colors-neutral-100);
   --dv-color-abyss: #ffffff;
   --dv-color-abyss-light: var(--colors-neutral-100);

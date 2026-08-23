@@ -1,6 +1,10 @@
-@layer reset, base, tokens, recipes, utilities;
+@layer panda-reset, panda-base, panda-tokens, panda-recipes, panda-utilities;
 
 @import 'solid-repl/repl/main.css';
+
+#app .dockview-theme-abyss-spaced {
+  padding: 0 10px 10px;
+}
 
 @font-face {
   font-family: 'Gordita';

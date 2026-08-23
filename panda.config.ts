@@ -5,6 +5,14 @@ export default defineConfig({
   jsxFramework: 'solid',
   outdir: 'styled-system',
   importMap: 'styled-system',
+  // Prefixed so the shipped CSS doesn't collide with Tailwind v3's `@layer base/utilities`
+  layers: {
+    reset: 'panda-reset',
+    base: 'panda-base',
+    tokens: 'panda-tokens',
+    recipes: 'panda-recipes',
+    utilities: 'panda-utilities',
+  },
   include: ['./packages/playground/src/**/*.{ts,tsx}', './packages/solid-repl/src/**/*.{ts,tsx}'],
   exclude: [],
   conditions: {

@@ -263,7 +263,7 @@ export const Repl: ReplProps = (props) => {
 
   const compileOutput = () => {
     const active = activeName();
-    if (outputVisible() && active?.endsWith('.tsx')) {
+    if (outputVisible() && active && /\.[tj]sx$/.test(active)) {
       let compileOpts: SolidCompileOptions = mode();
       if (compileOpts === compileOptions.UNIVERSAL) {
         compileOpts = {
@@ -457,7 +457,7 @@ export const Repl: ReplProps = (props) => {
             (params) => {
               const disposable = params.group.api.onDidActivePanelChange((e) => {
                 if (!e) return;
-                setIsTSX(e.panel.id.endsWith('.tsx'));
+                setIsTSX(/\.[tj]sx$/.test(e.panel.id));
               });
               return () => disposable.dispose();
             },
@@ -570,7 +570,7 @@ export const Repl: ReplProps = (props) => {
           },
           width: 1600,
           height: 480,
-          orientation: Orientation.HORIZONTAL,
+          orientation: props.vertical ? Orientation.VERTICAL : Orientation.HORIZONTAL,
         },
         activeGroup: '1',
         panels: {

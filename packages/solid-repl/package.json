@@ -14,7 +14,7 @@
   "module": "dist/repl.jsx",
   "types": "src/types.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && tsdown",
+    "build": "tsdown && tsc -p tsconfig.build.json",
     "tsc": "tsc"
   },
   "dependencies": {
