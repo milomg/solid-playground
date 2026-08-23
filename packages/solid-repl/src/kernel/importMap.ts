@@ -59,6 +59,11 @@ export function parseImportMap(source: string | undefined): ImportMapState {
   return { imports, pinned };
 }
 
+export function solidVersionFromImportMap(source: string | undefined): string | undefined {
+  const url = parseImportMap(source).imports['solid-js'];
+  return url?.match(/^https:\/\/esm\.sh\/solid-js@([^/?]+)/)?.[1];
+}
+
 function serializeImportMap(state: ImportMapState): string {
   return JSON.stringify({ imports: state.imports, pinned: state.pinned }, null, 2);
 }

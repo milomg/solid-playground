@@ -6,7 +6,7 @@ import { useLocation, useMatch, useNavigate, useParams } from '@solidjs/router';
 import { API, useAppContext } from '../context';
 import { debounce } from '@solid-primitives/scheduled';
 import { decompressFromURL } from '@amoutonbrady/lz-string';
-import { defaultTabs, isSolidV2 } from 'solid-repl/src';
+import { defaultTabs, isSolidV2, solidVersionFromImportMap } from 'solid-repl/src';
 import type { ReplStorage, Tab } from 'solid-repl';
 import type { APIRepl } from './home';
 import { Header } from '../components/header';
@@ -191,6 +191,19 @@ export const Edit = () => {
   };
   if (storedVersion === 'next' || storedVersion === 'latest') applySolidVersion(storedVersion, false);
 
+  const adoptSolidVersion = (importMapSource: string | undefined) => {
+    const version = solidVersionFromImportMap(importMapSource);
+    if (version) {
+      versionRequest++;
+      setSolidVersion(version);
+      setResolvedSolidVersion(version);
+    } else {
+      const stored = localStorage.getItem('solidVersion') ?? '';
+      setSolidVersion(stored);
+      applySolidVersion(stored, false);
+    }
+  };
+
   const changeSolidVersion = (version: string) => {
     setSolidVersion(version);
     localStorage.setItem('solidVersion', version);
@@ -225,6 +238,7 @@ export const Edit = () => {
         }).then((r) => r.json());
       }
 
+      adoptSolidVersion(output.files.find((x) => x.name === 'import_map.json')?.content);
       setTabs(output.files.map((x) => ({ name: x.name, source: x.content })));
 
       return output;
